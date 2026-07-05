@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アイスクリームクリッカー</title>
+    
+    <!-- CSS（デザイン）をここに合体 -->
+    <style>
+        body { 
+            background-color: #fff0f5; 
+            font-family: 'Helvetica Neue', Arial, sans-serif; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .game-container {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        #ice-button {
+            font-size: 80px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        #ice-button:active {
+            transform: scale(0.9); /* クリックしたときに弾む動き */
+        }
+        .shop {
+            margin-top: 30px;
+            border-top: 2px dashed #ffb6c1;
+            padding-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 10px;
+            border: 1px solid #ffb6c1;
+            background-color: #fff;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #ddd;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1>アイスクリッカー</h1>
+        <p>スコア: <span id="score">0</span> コーン</p>
+        
+        <!-- クリックするメインのアイス -->
+        <button id="ice-button">🍦</button>
+        
+        <div class="shop">
+            <h2>ショップ</h2>
+            <button id="buy-auto-clicker" disabled>自動クリック機 (コスト: 10)</button>
+        </div>
+    </div>
+
+    <!-- JavaScript（動きの仕組み)をここに合体 -->
+    <script>
+        let score = 0;
+        let autoClickers = 0;
+        let autoClickerCost = 10;
+
+        const scoreDisplay = document.getElementById('score');
+        const iceButton = document.getElementById('ice-button');
+        const buyAutoClickerButton = document.getElementById('buy-auto-clicker');
+
+        // 画面更新
+        function updateDisplay() {
+            scoreDisplay.textContent = score;
+            buyAutoClickerButton.disabled = score < autoClickerCost;
+        }
+
+        // アイスクリック時
+        iceButton.addEventListener('click', () => {
+            score++;
+            updateDisplay();
+        });
+
+        // 自動クリック機購入時
+        buyAutoClickerButton.addEventListener('click', () => {
+            if (score >= autoClickerCost) {
+                score -= autoClickerCost;
+                autoClickers++;
+                autoClickerCost = Math.floor(autoClickerCost * 1.5); // コストを1.5倍に
+                buyAutoClickerButton.textContent = `自動クリック機 (コスト: ${autoClickerCost})`;
+                updateDisplay();
+            }
+        });
+
+        // 1秒ごとの自動増加タイマー
+        setInterval(() => {
+            if (autoClickers > 0) {
+                score += autoClickers;
+                updateDisplay();
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
