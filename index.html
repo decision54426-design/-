@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アイスクリームクリッカー</title>
+    
+    <style>
+        body { 
+            background-color: #fff0f5; 
+            font-family: 'Helvetica Neue', Arial, sans-serif; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .game-container {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            width: 350px;
+        }
+        #ice-button {
+            font-size: 80px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        #ice-button:active {
+            transform: scale(0.9);
+        }
+        .quest-container {
+            margin-top: 20px;
+            background-color: #fff9e6;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #ffe4b5;
+        }
+        .shop {
+            margin-top: 20px;
+            border-top: 2px dashed #ffb6c1;
+            padding-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 10px;
+            border: 1px solid #ffb6c1;
+            background-color: #fff;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #ddd;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1>アイスクリッカー</h1>
+        <p>スコア: <span id="score">0</span> コーン</p>
+        
+        <button id="ice-button">🍦</button>
+        
+        <!-- デイリークエスト画面 -->
+        <div class="quest-container">
+            <h3>📅 本日のデイリークエスト</h3>
+            <p id="quest-text">ロード中...</p>
+            <p>進捗: <span id="quest-progress">0</span> / <span id="quest-target">0</span></p>
+            <button id="claim-reward-btn" disabled>報酬を受け取る (+50コーン)</button>
+        </div>
+        
+        <div class="shop">
+            <h2>ショップ</h2>
+            <button id="buy-auto-clicker" disabled>自動クリック機 (コスト: 10)</button>
+        </div>
+    </div>
+
+    <script>
+        let score = 0;
+        let autoClickers = 0;
+        let autoClickerCost = 10;
+
+        // クエスト用の変数
+        let currentQuest = null;
+        let todayClickCount = 0; // 今日クリックした回数
+        let questClaimed = false; // すでに報酬を貰ったか
+
+        // 日替わりクエストのリスト（ここを書き換えれば好きなクエストを作れます）
+        const questPool = [
+            { id: 1, text: "アイスを30回クリックしよう！", target: 30, reward: 50 },
+            { id: 2, text: "アイスを50回クリックしよう！", target: 50, reward: 80 },
+            { id: 3, text: "アイスを100回クリックしよう！", target: 100, reward: 150 }
+        ];
+
+        const scoreDisplay = document.getElementById('score');
+        const iceButton = document.getElementById('ice-button');
+        const buyAutoClickerButton = document.getElementById('buy-auto-clicker');
+        
+        const questText = document.getElementById('quest-text');
+        const questProgress = document.getElementById('quest-progress');
+        const questTarget = document.getElementById('quest-target');
+        const claimRewardBtn = document.getElementById('claim-reward-btn');
+
+        // --- 📅 毎日自動更新の仕組み ---
+        function checkDailyQuest() {
+            const today = new Date().toLocaleDateString(); // 例: "2026/7/6" のような文字列
+            const lastSavedDate = localStorage.getItem('lastQuestDate');
+
+            // セーブデータ（ブラウザ）から過去の進行状況を読み込む
+            score = parseInt(localStorage.getItem('gameScore')) || 0;
+            autoClickers = parseInt(localStorage.getItem('gameAutos')) || 0;
+            autoClickerCost = parseInt(localStorage.getItem('gameCost')) || 10;
+
+            if (lastSavedDate !== today) {
+                // 日付が変わっていたらクエストを新しくする
+                // 日付を元にランダムでクエストを1つ選ぶ（1日中同じクエストにする仕組み）
+                const dateSeed = new Date().getDate(); 
+                const questIndex = dateSeed % questPool.length;
+                
+                currentQuest = questPool[questIndex];
+                todayClickCount = 0;
+                questClaimed = false;
+
+                // 新しい日付とクエスト状況を保存
+                localStorage.setItem('lastQuestDate', today);
+                localStorage.setItem('currentQuestId', currentQuest.id);
+                localStorage.setItem('todayClickCount', todayClickCount);
+                localStorage.setItem('questClaimed', questClaimed);
+            } else {
+                // 同じ日なら続きから再開
+                const savedId = parseInt(localStorage.getItem('currentQuestId'));
+                currentQuest = questPool.find(q => q.id === savedId) || questPool[0];
+                todayClickCount = parseInt(localStorage.getItem('todayClickCount')) || 0;
+                questClaimed = localStorage.getItem('questClaimed') === 'true';
+            }
+
+            buyAutoClickerButton.textContent = `自動クリック機 (コスト: ${autoClickerCost})`;
+            updateDisplay();
+        }
+
+        // データの保存
+        function saveGame() {
+            localStorage.setItem('gameScore', score);
+            localStorage.setItem('gameAutos', autoClickers);
+            localStorage.setItem('gameCost', autoClickerCost);
+            localStorage.setItem('todayClickCount', todayClickCount);
+            localStorage.setItem('questClaimed', questClaimed);
+        }
+
+        // 画面の更新
+        function updateDisplay() {
+            scoreDisplay.textContent = score;
+            buyAutoClickerButton.disabled = score < autoClickerCost;
+
+            // クエスト画面の更新
+            if (currentQuest) {
+                questText.textContent = currentQuest.text;
+                questTarget.textContent = currentQuest.target;
+                questProgress.textContent = todayClickCount;
+                claimRewardBtn.textContent = `報酬を受け取る (+${currentQuest.reward}コーン)`;
+
+                if (questClaimed) {
+                    claimRewardBtn.textContent = "クリア済み！🌟";
+                    claimRewardBtn.disabled = true;
+                } else {
+                    // 目標達成 && まだ報酬を受け取っていないならボタンを押せる
+                    claimRewardBtn.disabled = todayClickCount < currentQuest.target;
+                }
+            }
+        }
+
+        // アイスクリック時
+        iceButton.addEventListener('click', () => {
+            score++;
+            
+            // クエストがまだ終わっていなければカウントを進める
+            if (currentQuest && todayClickCount < currentQuest.target && !questClaimed) {
+                todayClickCount++;
+            }
+            
+            updateDisplay();
+            saveGame();
+        });
+
+        // 報酬受け取りボタン
+        claimRewardBtn.addEventListener('click', () => {
+            if (currentQuest && todayClickCount >= currentQuest.target && !questClaimed) {
+                score += currentQuest.reward;
+                questClaimed = true;
+                updateDisplay();
+                saveGame();
+            }
+        });
+
+        // 自動クリック機購入
+        buyAutoClickerButton.addEventListener('click', () => {
+            if (score >= autoClickerCost) {
+                score -= autoClickerCost;
+                autoClickers++;
+                autoClickerCost = Math.floor(autoClickerCost * 1.5);
+                buyAutoClickerButton.textContent = `自動クリック機 (コスト: ${autoClickerCost})`;
+                updateDisplay();
+                saveGame();
+            }
+        });
+
+        // 1秒ごとの自動増加タイマー
+        setInterval(() => {
+            if (autoClickers > 0) {
+                score += autoClickers;
+                updateDisplay();
+                saveGame(); // 自動で増えたスコアも保存
+            }
+        }, 1000);
+
+        // 起動時にクエストとセーブデータをチェック
+        checkDailyQuest();
+    </script>
+</body>
+</html>
